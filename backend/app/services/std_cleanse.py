@@ -8,8 +8,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from app.handoff import handoff
 from app.services.base import BaseModuleService
 from app.store import store
+
+CLAIM_BATCH_ACTIONS = {"领取批次", "领取清洗批次", "清洗实领", "实领批次", "领取清洗",
+                       "claim_batch", "claim"}
 
 
 class StdCleanseService(BaseModuleService):
@@ -21,6 +25,27 @@ class StdCleanseService(BaseModuleService):
     STATUS_ORDER = ["草稿", "已启用", "已停用"]
     ACTION_RULES = {"启用规则": "已启用", "停用规则": "已停用"}
     NEGATIVE_ACTIONS = ["停用规则"]
+
+    def run_action_full(
+        self, entry_id: int, action: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        params = params or {}
+        act = action.strip()
+        if act in CLAIM_BATCH_ACTIONS:
+            params = dict(params)
+            params.setdefault("rule_id", entry_id)
+            result = handoff.claim_cleanse(params)
+            if result.get("ok"):
+                result["entry"] = store.find(self.MODULE, entry_id)
+            return result
+        return super().run_action_full(entry_id, act, params)
+
+    # ---- 清洗资格：只认服务端确认的完整抽取批次 ----
+    def consumable_batches(self, entity_code: str | None = None) -> list[dict[str, Any]]:
+        return handoff.consumable_batches(entity=entity_code or None)
+
+    def actual_claims(self) -> list[dict[str, Any]]:
+        return [handoff.claims[k] for k in handoff.claim_order]
 
     # ---- 业务扩展：标准化清洗与检测派发 ----
 
@@ -87,13 +112,20 @@ class StdCleanseService(BaseModuleService):
         return f"异常已按策略忽略: {reason}"
 
     def consume_extract_output(self, entry_id: int) -> list[str]:
-        """读取抽取作业产物，聚合待清洗批次。"""
+        """读取抽取作业产物，聚合待清洗批次。
+
+        cc10051：只返回服务端确认过的完整抽取批次；半段读入、停用候补区间不算。
+        """
         entry = store.find(self.MODULE, entry_id)
         if entry is None:
             return []
         entity_code = entry.get("实体编码", "")
-        return [j.get("作业名称", "") for j in store.rows("record_extract")
-                if j.get("实体编码") == entity_code and j.get("status") == "已完成"]
+        names = [b.get("batch_no", "") for b in handoff.consumable_batches(entity=entity_code or None)]
+        # 兼容旧数据：没有交接批次台账时，退回已完成作业名
+        if not names:
+            return [j.get("作业名称", "") for j in store.rows("record_extract")
+                    if j.get("实体编码") == entity_code and j.get("status") == "已完成"]
+        return names
 
     def produce_quality_input(self, entry_id: int, cleaned_count: int) -> int:
         """把清洗结果作为质量检查输入，写入 quality_result。"""

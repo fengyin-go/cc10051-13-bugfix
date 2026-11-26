@@ -22,6 +22,25 @@ class SyncCursorService(BaseModuleService):
     ACTION_RULES = {"推进游标": "游标停滞", "回退游标": "已回退"}
     NEGATIVE_ACTIONS = []
 
+    def run_action_full(
+        self, entry_id: int, action: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        # 兼容验收时通过动作参数直接给定断点值/增量；状态流转仍走基类约定。
+        params = params or {}
+        entry = store.find(self.MODULE, entry_id)
+        if entry is not None and action.strip() == "推进游标":
+            target = params.get("value", params.get("游标值", params.get("target", params.get("to"))))
+            increment = params.get("increment", params.get("增量", params.get("count")))
+            try:
+                current = int(str(entry.get("游标值", "0") or "0"))
+            except ValueError:
+                current = 0
+            if target is not None:
+                entry["游标值"] = str(int(float(str(target))))
+            elif increment is not None:
+                entry["游标值"] = str(current + int(float(str(increment))))
+        return super().run_action_full(entry_id, action, params)
+
     # ---- 业务扩展：游标推进与断点回填 ----
 
     def advance(self, entry_id: int, increment: int) -> dict[str, Any]:

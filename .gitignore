@@ -87,3 +87,7 @@ desktop.ini
 *.db
 *.pid
 *.seed
+
+# cc10051 handoff runtime snapshot
+backend/.handoff-state.json
+backend/.handoff-state.json.tmp

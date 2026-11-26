@@ -94,5 +94,15 @@ def create_entry(module: str, payload: EntryPayload) -> ActionResult:
 @router.post("/{module}/{entry_id}/actions", response_model=ActionResult)
 def run_action(module: str, entry_id: int, payload: ActionPayload) -> ActionResult:
     service = require_service(module)
-    entry, message = service.run_action(entry_id, payload.action.strip())
-    return ActionResult(ok=entry is not None, message=message, entry=entry)
+    params = payload.model_dump()
+    outcome = service.run_action_full(entry_id, payload.action.strip(), params)
+    # 让动作响应里的 entry 与 GET 详情带同样的资格/断点/回执标注
+    if isinstance(outcome, dict) and isinstance(outcome.get("entry"), dict) \
+            and outcome["entry"].get("id") is not None:
+        try:
+            fresh = service.get_entry(int(outcome["entry"]["id"]))
+            if fresh is not None:
+                outcome["entry"] = fresh
+        except (TypeError, ValueError):
+            pass
+    return ActionResult(**outcome)

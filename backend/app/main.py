@@ -16,8 +16,9 @@ app = FastAPI(title="主数据治理与参考数据管理平台", version="1.0.0
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    allow_credentials=True,
+    # 验收时前端可能跑在 5201/4173/其它本地端口或经代理访问；本服务只承载演示数据，全放通
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

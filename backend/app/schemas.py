@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
@@ -16,6 +16,9 @@ class PageResult(BaseModel, Generic[T]):
 
 
 class ActionResult(BaseModel):
+    # cc10051：动作可带回 receipt/batch/checkpoint/claim 等富字段，允许扩展
+    model_config = ConfigDict(extra="allow")
+
     ok: bool
     message: str
     entry: dict[str, Any] | None = None
@@ -27,5 +30,8 @@ class EntryPayload(BaseModel):
 
 
 class ActionPayload(BaseModel):
+    # 允许验收脚本在动作体里直接带 start/end/count/receipts/decision 等参数
+    model_config = ConfigDict(extra="allow")
+
     action: str
     remark: str | None = None

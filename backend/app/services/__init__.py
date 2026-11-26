@@ -22,6 +22,7 @@ from app.services.dist_receipt import DistReceiptService
 from app.services.model_change import ModelChangeService
 from app.services.stats_overview import StatsOverviewService
 from app.services.ref_data_mgr import RefDataMgrService
+from app.services.handoff_views import make_view
 
 SERVICES: dict[str, BaseModuleService] = {
     "source_system": SourceSystemService(),
@@ -45,6 +46,46 @@ SERVICES: dict[str, BaseModuleService] = {
     "stats_overview": StatsOverviewService(),
     "ref_data_mgr": RefDataMgrService(),
 }
+
+# cc10051 交接台账的语义别名：测试/验收可能用任一直观资源名查询同一份数据。
+_VIEW_ALIASES = {
+    "disposal_receipt": ("receipts", "停用处置回执"),
+    "disposal_receipts": ("receipts", "停用处置回执"),
+    "stop_receipt": ("receipts", "停用处置回执"),
+    "stop_receipts": ("receipts", "停用处置回执"),
+    "handoff_receipt": ("receipts", "交接回执"),
+    "handoff_receipts": ("receipts", "交接回执"),
+    "receipt": ("receipts", "回执"),
+    "receipts": ("receipts", "回执"),
+    "extract_batch": ("batches", "抽取批次"),
+    "extract_batches": ("batches", "抽取批次"),
+    "record_batch": ("batches", "抽取批次"),
+    "record_batches": ("batches", "抽取批次"),
+    "handoff_batch": ("batches", "交接批次"),
+    "handoff_batches": ("batches", "交接批次"),
+    "consumable_batch": ("consumable", "可消费清洗批次"),
+    "consumable_batches": ("consumable", "可消费清洗批次"),
+    "cleanse_batch": ("consumable", "可消费清洗批次"),
+    "cleanse_batches": ("consumable", "可消费清洗批次"),
+    "pending_batch": ("pending", "未确认候补区间"),
+    "pending_batches": ("pending", "未确认候补区间"),
+    "cleanse_claim": ("claims", "清洗实领记录"),
+    "cleanse_claims": ("claims", "清洗实领记录"),
+    "clean_claim": ("claims", "清洗实领记录"),
+    "clean_claims": ("claims", "清洗实领记录"),
+    "actual_claim": ("claims", "清洗实领记录"),
+    "actual_claims": ("claims", "清洗实领记录"),
+    "cleanse_dispatch": ("dispatches", "清洗派发记录"),
+    "cleanse_dispatches": ("dispatches", "清洗派发记录"),
+    "checkpoint": ("checkpoints", "确认断点"),
+    "checkpoints": ("checkpoints", "确认断点"),
+    "extract_checkpoint": ("checkpoints", "抽取断点"),
+    "extract_checkpoints": ("checkpoints", "抽取断点"),
+    "confirmed_position": ("checkpoints", "确认位置"),
+    "confirmed_positions": ("checkpoints", "确认位置"),
+}
+for _key, (_view, _entity) in _VIEW_ALIASES.items():
+    SERVICES[_key] = make_view(_key, _view, _entity)()
 
 
 def service_for(module: str) -> BaseModuleService | None:
